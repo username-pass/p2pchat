@@ -23,7 +23,7 @@ jobs:
 
     - name: Inline scripts in HTML file
       run: |
-        HTML_FILE="path/to/original-file.html"
+        HTML_FILE="p2pchat.html"
         python scripts/inline-scripts.py $HTML_FILE
 
     - name: Create Release
