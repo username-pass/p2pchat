@@ -45,3 +45,5 @@ jobs:
           asset_path: inlined.html
           asset_name: p2pchat.html
           asset_content_type: text/html
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
