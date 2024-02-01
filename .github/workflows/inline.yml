@@ -10,35 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    - name: Inline scripts in HTML file
-      run: |
-        # Replace path/to/original-file.html with the actual path of your HTML file
-        HTML_FILE="p2pchat.html"
-        
-        # Use sed and awk to inline scripts in the HTML file
-        sed -n '/<script src/ s/.*src="\([^"]*\)".*/\1/p' $HTML_FILE | \
-        while read -r script_src; do
-          script_content=$(curl -s $script_src) # Use curl to fetch script content, adjust as needed
-          sed -i.bak "s|<script src=\"$script_src\"></script>|<script>$script_content<\/script>|g" $HTML_FILE
-        done
+      - name: Inline scripts in HTML file
+        run: |
+          # Replace path/to/original-file.html with the actual path of your HTML file
+          HTML_FILE="p2pchat.html"
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      with:
-        tag_name: v${{ github.run_number }}
-        release_name: Release ${{ github.run_number }}
-        body: |
-          Changes in this release:
-          - Inline scripts in HTML file
+          sed -n '\#<script src# s#.*src="\([^"]*\)".*#\1#p' $HTML_FILE | \
+          while read -r script_src; do
+            script_content=$(curl -s $script_src) # Use curl to fetch script content, adjust as needed
+            script_content_escaped=$(printf "%s\n" "$script_content" | sed 's/[\/&]/\\&/g')
+            sed -i.bak "s#<script src=\"$script_src\"></script>#<script>$script_content_escaped<\/script>#g" $HTML_FILE
+          done
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: path/to/original-file.html
-        asset_name: inlined-file.html
-        asset_content_type: text/html
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          body: |
+            Changes in this release:
+            - Inline scripts in HTML file
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: path/to/original-file.html
+          asset_name: inlined-file.html
+          asset_content_type: text/html
