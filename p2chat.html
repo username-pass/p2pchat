@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0" />
+        <title>PeerJS Chat App</title>
+        <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+        <script src="./keypair.js"></script>
+        <script src="./p2chat.js"></script>
+        <script src="./filehandlerlibrary.js"></script>
+        <style src="./style.css"></style>
+    </head>
+
+    <body>
+        <div id="sidebar">
+            <div class="sidebar-element">Select Usepr <br />(coming soon)</div>
+            <div class="sidebar-element">
+                <label>Your ID:</label
+                ><input
+                    type="text"
+                    id="your-id"
+                    readonly /><button onclick="p2chat.resetPeerId()">
+                    Generate ID</button
+                ><button onclick="p2chat.copyIdToClipboard()">Copy ID</button>
+            </div>
+            <div class="sidebar-element">
+                <label>input ID:</label
+                ><input
+                    type="text"
+                    id="other-id" />
+            </div>
+            <div class="sidebar-element">
+                Connected:<input
+                    type="checkbox"
+                    onclick="return false;"
+                    onkeydown="e = e || window.event; if(e.keyCode !== 9) return false;"
+                    id="connection-indicator" />
+            </div>
+        </div>
+        <div id="content-wrapper">
+            <div id="chat-history"></div>
+            <div class="message-container">
+                <input
+                    type="text"
+                    id="message"
+                    placeholder="message"
+                    onkeypress="p2chat.sendMessage(event)" />
+            </div>
+        </div>
+        <script
+            id="login"
+            defer>
+            const fs = new FileHandlerLibrary();
+            let keyPair = new KeyPair();
+            const p2chat = new P2chat(fs);
+
+            const defaultData = {
+                type: "default",
+                status: "message sent successfully",
+                ok: true,
+                message: "this is a test message",
+                sender: {
+                    signedName: "---STUFF---",
+                    insecureName: "Other",
+                },
+            };
+
+            const statuses = {
+                200: {
+                    type: "status",
+                    ok: true,
+                    status: "200 - all good",
+                },
+                400: {
+                    type: "status",
+                    ok: false,
+                    status: "400 - bad request",
+                },
+                500: {
+                    type: "status",
+                    ok: false,
+                    status: "500 - internal error",
+                },
+            };
+
+            async function login(callback) {
+                let wrapper = document.createElement("div");
+                wrapper.id = "login-prompt-wrapper";
+                document.body.appendChild(wrapper);
+                let loginPrompt = document.createElement("div");
+                loginPrompt.id = "login-prompt";
+                wrapper.appendChild(loginPrompt);
+                let loginBtn = document.createElement("button");
+                loginBtn.innerText = "login";
+                loginBtn.classList.add("login-btn");
+                loginPrompt.appendChild(loginBtn);
+                loginBtn.setAttribute("login", true);
+                loginBtn.addEventListener("click", async () => {
+                    if (loginBtn.getAttribute("login")) {
+                        let status = await fs.initFileSystem(
+                            confirm("hard init?")
+                        );
+                        if (!status) {
+                            return;
+                        }
+                        wrapper.remove();
+                        console.log(fs.fileContents);
+                        callback();
+                    }
+                });
+            }
+            login(async () => {
+                let [public, private, others] = fs.parseData();
+                if (
+                    public === undefined ||
+                    private === undefined ||
+                    others === undefined
+                ) {
+                    keyPair.generateKeyPair().then(() => {
+                        const { publicKey, privateKey } =
+                            keyPair.exportHexKeys();
+                        fs.writeData(
+                            fs.convertJSON({
+                                public: publicKey,
+                                private: privateKey,
+                                others: [],
+                            })
+                        );
+                    });
+                } else {
+                    keyPair.importHexKeys(public, private);
+                }
+                console.log(keyPair.exportHexKeys());
+                /*
+      PUBLIC
+      ---
+      PRIVATE
+      ---
+      OTHERS
+      (---)
+      */
+
+                p2chat.init();
+            });
+        </script>
+    </body>
+</html>
