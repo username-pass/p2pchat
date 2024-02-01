@@ -40,6 +40,6 @@ jobs:
       uses: actions/upload-release-asset@v1
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: path/to/inlined-file.html
-        asset_name: inlined-file.html
+        asset_path: inlined.html
+        asset_name: p2pchat.html
         asset_content_type: text/html
