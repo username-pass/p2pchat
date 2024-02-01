@@ -10,35 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-      - name: Inline scripts in HTML file
-        run: |
-          # Replace path/to/original-file.html with the actual path of your HTML file
-          HTML_FILE="p2pchat.html"
+    - name: Install Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.8
 
-          sed -n '\#<script src# s#.*src="\([^"]*\)".*#\1#p' $HTML_FILE | \
-          while read -r script_src; do
-            script_content=$(curl -s $script_src) # Use curl to fetch script content, adjust as needed
-            script_content_escaped=$(printf "%s\n" "$script_content" | sed 's/[\/&]/\\&/g')
-            sed -i.bak "s#<script src=\"$script_src\"></script>#<script>$script_content_escaped<\/script>#g" $HTML_FILE
-          done
+    - name: Install dependencies
+      run: pip install beautifulsoup4
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release ${{ github.run_number }}
-          body: |
-            Changes in this release:
-            - Inline scripts in HTML file
+    - name: Inline scripts in HTML file
+      run: |
+        HTML_FILE="path/to/original-file.html"
+        python scripts/inline-scripts.py $HTML_FILE
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: path/to/original-file.html
-          asset_name: inlined-file.html
-          asset_content_type: text/html
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release ${{ github.run_number }}
+        body: |
+          Changes in this release:
+          - Inline scripts in HTML file
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: path/to/inlined-file.html
+        asset_name: inlined-file.html
+        asset_content_type: text/html
