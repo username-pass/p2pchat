@@ -16,7 +16,7 @@ jobs:
     - name: Inline scripts in HTML file
       run: |
         # Replace path/to/original-file.html with the actual path of your HTML file
-        HTML_FILE="path/to/original-file.html"
+        HTML_FILE="p2pchat.html"
         
         # Use sed and awk to inline scripts in the HTML file
         sed -n '/<script src/ s/.*src="\([^"]*\)".*/\1/p' $HTML_FILE | \
