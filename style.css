@@ -35,10 +35,14 @@
     width: 190px;
     padding-top: 5px;
     padding-bottom: 5px;
-    padding-left: 10px;
+    padding-left: 5px;
     overflow-x: dot-dot-dash;
     user-select: none;
     color: var(--text-color);
+  }
+
+  .sidebar-element input {
+    width: 180px;
   }
 
   #content-wrapper {
@@ -59,7 +63,8 @@
   }
 
   #message {
-    width: 99%;
+    width: calc(100% - 15px);
+    margin-left: 4px;
   }
 
   #login-prompt-wrapper {
@@ -95,3 +100,13 @@
   .login-btn:hover {
     background-color: var(--text-color);
   }
+
+  
+
+  .others-container {
+    width: 190px;
+    height: 475px;
+    background-color: red;
+  }
+
+

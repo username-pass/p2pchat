@@ -3,13 +3,14 @@ class P2chat {
         this.fs = fs;
         this.peer;
         this.conn;
-        [this.publicKey, this.privateKey, this.others] = fs.parseData();
         this.othersSeperator = String.fromCharCode(8);
         this.internalOthersSeperator = String.fromCharCode(9);
 
         this.id;
     }
     init() {
+        [this.publicKey, this.privateKey, this.others] = fs.parseData();
+        console.log([this.publicKey, this.privateKey, this.others]);
         this.peer = new Peer(this.publicKey);
         this.peer.on("open", (id) => {
             //display id
@@ -17,7 +18,6 @@ class P2chat {
             this.id = id;
         });
         this.peer.on("connection", (connection) => {
-            console.log(typeof this, this);
             this.conn = connection;
             this.setConnectionIndicator(true);
             this.displayMessage(
@@ -97,9 +97,6 @@ class P2chat {
 
     doData(data) {
         console.log("received data", data);
-        console.log(this);
-        console.log(p2chat);
-        console.log(P2chat);
         if (typeof data == "String") {
             p2chat.displayMessage("data", "unkown", data);
             return;
@@ -138,9 +135,47 @@ class P2chat {
     }
 
     parseOthers() {
-        this.others = JSON.stringify(
-            atob(this.others.split(this.othersSeperator))
+        this.others ??= "W10=";
+        console.log(this.others);
+        this.others = JSON.parse(
+            atob(this.others)
         );
         return this.others;
+    }
+
+    combineOthers(others) {
+        others ??= this.others;
+        let out = [];
+        others.forEach(other => {
+            out.push(JSON.stringify(other));
+        });
+        out = out.join(this.othersSeperator);
+        return out;
+    }
+
+    findOthers() {
+        let otherscontainer = document.querySelector(".others-container");
+        
+        this.others.forEach(async (other) => {
+            let otherEl = document.createElement("div");
+            otherEl.classList.add("other-user");
+            let onlineIndicator = document.createElement("input");
+            onlineIndicator.type = "checkbox";
+            let usernameEl = document.createElement("span");
+            usernameEl.innerText = other.nickname || await createHash(other.publicKey);
+            otherEl.appendChild(onlineIndicator);
+            otherEl.appendChild(usernameEl);
+            otherscontainer.appendChild(otherEl);
+        })
+    }
+
+    addOther(publicKey, chats, nickname) {
+        let newOther = {publicKey, nickname, chats};
+        this.others.push(newOther);
+        this.updateOthers();
+    }
+
+    updateOthers() {
+        
     }
 }

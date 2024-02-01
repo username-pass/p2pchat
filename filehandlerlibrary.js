@@ -83,6 +83,9 @@ class FileHandlerLibrary {
         if (fileHandleOrUndefined && !hard) {
             //if you have it, return the handler
             this.fs = fileHandleOrUndefined;
+            // console.log(this.fs[0]);
+            // console.log(this.fs);
+            // this.fs = this.fs[0];
             await this.verifyPermission(this.fs, true);
             const fileData = await this.readData(this.fs);
             if (fileData) {
@@ -98,16 +101,12 @@ class FileHandlerLibrary {
             const handle = await window.showSaveFilePicker(defaultOpts); // prompt "Save As"
             this.fs = handle;
             await this.dbset(this.fileKeyName, this.fs);
-            console.log("3", this.fs, this.fs);
-            console.log(typeof this.fs, typeof this.fs);
             return 3;
         } else {
             //pick an old one
             this.fs = await window.showOpenFilePicker();
 
             this.fs = this.fs[0];
-            console.log("2", this.fs, this.fs);
-            console.log(typeof this.fs, typeof this.fs);
             await this.dbset(this.fileKeyName, this.fs);
             //await this.verifyPermission(this.fs[0], true);
             const fileData = await this.readData(this.fs);
@@ -125,7 +124,6 @@ class FileHandlerLibrary {
     }
 
     async verifyPermission(fileHandle, readWrite) {
-        console.log(fileHandle);
         const options = {
             mode: readWrite ? "readwrite" : undefined,
         };
@@ -141,12 +139,16 @@ class FileHandlerLibrary {
     async readData(fileHandle) {
         try {
             const file = await fileHandle.getFile();
-            console.log(typeof file);
-            return await file.text();
+            this.data = await file.text();
+            return this.data;
         } catch (error) {
             console.log("Error reading file handler data:", error);
             return null;
         }
+    }
+
+    readDataSync () {
+        return this.data;
     }
 
     parseData() {
@@ -154,9 +156,11 @@ class FileHandlerLibrary {
         return dataArray;
     }
 
+
     async writeData(data) {
         const writer = await this.fs.createWritable(); // request writable stream
         await writer.write(new Blob([data])); // write the Blob directly
+        this.data = data;
         writer.close(); // end writing
     }
 

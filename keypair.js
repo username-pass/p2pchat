@@ -121,6 +121,10 @@ class KeyPair {
         this.privateKey = KeyPair.hexToArrayBuffer(hexPrivateKey);
     }
 
+    importOthers(others) {
+        this.others = others;
+    }
+
     static bufferToHex(buffer) {
         return Array.from(new Uint8Array(buffer))
             .map((byte) => byte.toString(16).padStart(2, "0"))

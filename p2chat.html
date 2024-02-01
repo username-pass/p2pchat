@@ -7,15 +7,15 @@
             content="width=device-width, initial-scale=1.0" />
         <title>PeerJS Chat App</title>
         <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+        <script src="./lib.js"></script>
         <script src="./keypair.js"></script>
         <script src="./p2chat.js"></script>
         <script src="./filehandlerlibrary.js"></script>
-        <style src="./style.css"></style>
+        <link rel="stylesheet" href="./style.css">
     </head>
 
     <body>
         <div id="sidebar">
-            <div class="sidebar-element">Select Usepr <br />(coming soon)</div>
             <div class="sidebar-element">
                 <label>Your ID:</label
                 ><input
@@ -35,8 +35,13 @@
                 Connected:<input
                     type="checkbox"
                     onclick="return false;"
-                    onkeydown="e = e || window.event; if(e.keyCode !== 9) return false;"
+                    onkeydown="let e = e || window.event; if(e.keyCode !== 9) return false;"
                     id="connection-indicator" />
+            </div>
+            <div class="sidebar-element">
+                <div class="others-container">
+                    
+                </div>
             </div>
         </div>
         <div id="content-wrapper">
@@ -106,7 +111,6 @@
                             return;
                         }
                         wrapper.remove();
-                        console.log(fs.fileContents);
                         callback();
                     }
                 });
@@ -118,21 +122,24 @@
                     private === undefined ||
                     others === undefined
                 ) {
-                    keyPair.generateKeyPair().then(() => {
+                    await keyPair.generateKeyPair().then(async () => {
                         const { publicKey, privateKey } =
                             keyPair.exportHexKeys();
-                        fs.writeData(
+                            //FIX PARSE OTHERS FUNCTION!!!
+                        [public, private, others] = [publicKey, privateKey, "W10="];
+                        console.log({public, private, others});
+                        await fs.writeData(
                             fs.convertJSON({
-                                public: publicKey,
-                                private: privateKey,
-                                others: [],
+                                public,
+                                private,
+                                others
                             })
                         );
                     });
-                } else {
-                    keyPair.importHexKeys(public, private);
                 }
-                console.log(keyPair.exportHexKeys());
+                    keyPair.importHexKeys(public, private);
+                    keyPair.importOthers(others);
+                
                 /*
       PUBLIC
       ---
