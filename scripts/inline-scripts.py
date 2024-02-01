@@ -21,18 +21,21 @@ for script_tag in soup.find_all("script", src=True):
     script_tag.string = script_content
     script_tag["src"] = None
 
+style_tag = soup.new_tag("style")
+style_content = ""
+
 for style_tag in soup.find_all("link", rel="stylesheet"):
     style_src = style_tag["href"]
-    style_content = ""
     if (style_src.startswith("./")):
         style_src = style_src[2:]
         with open(style_src, "r") as file:
-            style_content = file.read()
+            style_content += file.read()
     else:
-        style_content = requests.get(style_src).text  # Use requests to fetch style content, adjust as needed
-    style_tag.string = style_content
-    style_tag["href"] = None
+        style_content += requests.get(style_src).text  # Use requests to fetch style content, adjust as needed
+    style_tag.decompose()
 
+style_tag.string = style_content
+soup.head.append(style_tag)
 # Save the modified HTML to a new file
 with open("inlined.html", "w+") as new_file:
     new_file.write(str(soup))
