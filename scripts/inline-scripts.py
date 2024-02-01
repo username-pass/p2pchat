@@ -10,6 +10,7 @@ with open(html_file_path, "r") as file:
 
 for script_tag in soup.find_all("script", src=True):
     script_src = script_tag["src"]
+    print(script_tag)
     script_content = ""
     if (script_src.startswith("./")):
         script_src = script_src[2:]
