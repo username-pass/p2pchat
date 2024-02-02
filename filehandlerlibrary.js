@@ -147,7 +147,7 @@ class FileHandlerLibrary {
         }
     }
 
-    readDataSync () {
+    readDataSync() {
         return this.data;
     }
 
@@ -156,12 +156,11 @@ class FileHandlerLibrary {
         return dataArray;
     }
 
-
     async writeData(data) {
         const writer = await this.fs.createWritable(); // request writable stream
         await writer.write(new Blob([data])); // write the Blob directly
-        this.data = data;
         writer.close(); // end writing
+        this.data = data;
     }
 
     convertJSON(json) {
