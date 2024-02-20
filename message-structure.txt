@@ -1,0 +1,36 @@
+3 layers
+
+
+SENDING:
+User input
+- connected to input box
+- inputs raw data
+- formats inputted user data (on a basic level)
+
+Routing to correct end users
+- messages are stored in "channels", where each "channel" has a list of users in it.
+ - in the "channel" the messages stored will store when they were sent, and which recipients ended up receiving them.
+- routes the message to the correct "channel"
+- turns the channel message data to raw messages and list of users to send it to
+
+sending to end users
+- sends the message data to all individual users, and sends data about what channel it's in
+
+RECEIVING:
+receiving from end users
+- receives raw requests to end users
+- filters out "untrusted" users
+ - users with no "trusted" boolean set in the user list
+ - adds them to the known users if the ID is unknown
+- sends the data to be routed
+
+routing to correct users and channels
+- parses the message, and finds out what channel to send it in
+- ensures that the sender is a part of the receiving channel, otherwise send a warning that the channel may be compromised
+- adds it to the channel data
+- sends an update request
+
+End user UI
+- upon receiving update request, determine if that is the current channel
+- if it's the currently displayed/focused channel, display the new message
+- otherwise, mark it as "unread", and display a "notification" in the other channel

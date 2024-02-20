@@ -1,3 +1,126 @@
+class chatNetwork {
+    constructor(fs) {
+        this.fs = fs;
+        this.peer;
+        this.currentConnection;
+        this.id;
+        this.othersSeperator = String.fromCharCode(8);
+        this.key = {
+            public,
+            private
+        }
+        this.connections = {
+
+        }
+        this.channels = {
+
+        };
+        this.knownUsers = {
+
+        }
+        this.callbacks = {
+            
+        }
+        this.DEFAULT_MSG = {
+            type: "default",
+            status: "none",
+            ok: true,
+            statusCode: 200,
+            data: {},
+            comment: ""
+        }
+        this.ERRORS = {
+            NO_CALLBACK: {
+                type: "error",
+                status: "no callback detected, dropping request",
+                statusCode: 500,
+                data: {},
+                ok: false
+
+            }
+        }
+        this.init();
+    }
+    init() {
+        [this.key.public,this.key.private,[this.channels,this.knownUsers]] = this.fs.parseData();
+        this.peer = new Peer(this.key.public);
+        this.peer.on("open", (id) => {
+            this.id = id;
+            document.getElementById("your-id").value = id;
+        });
+        this.peer.on("connection", (connection) => {
+
+            this.addConnection(connection, connection.peer, {trusted: false, known: false});
+            this.attemptHandshake(connection, (status) => {
+                this.changeStatus(connection, status);
+            })
+            
+        })
+    }
+
+    attemptHandshake(connection, callback) {
+        let randVal = newUUID();
+        this.sendData(connection, {
+            type: "handshake",
+            data: randVal,
+            
+        }, (returnData) => {
+            let stat = {};
+            stat.success = returnData.data == randVal;
+            stat.userData = returnData.userData;
+            stat.known 
+            
+            callback(stat);
+        })
+        
+    }
+
+    sendData(connection, data, callback) {
+        if (!this.connections[connection.peer]) return false;
+        let UUID = newUUID();
+        this.callbacks[UUID] = callback;
+        data.UUID = UUID;
+        connection.send(data);
+        return true;
+    }
+
+    testConnection(connection) {
+        let status = {
+            known = false,
+            trusted = false,
+            handshake
+        };
+        let id = connection.peer;
+        if (this.knownUsers[id]) {
+            status.known = true;
+            status.trusted = this.knownUsers[id].isTrusted;
+            this.attemptHandshake(connection, (data))
+            if (status.trusted) {
+                this.attemptHandshake(connection,(success) => {
+                    status.handshake = success;
+                });
+            }
+            
+        }
+        
+    }
+
+    addConnection(connection, id, status) {
+        if (!this.connections[id])
+        this.connections[id] = {connection,status};
+        connection.on("data", (data) => {
+            if (this.callbacks[data.UUID]){
+                connection.send(this.callbacks[data.UUID](data));
+            }
+            else{
+                connection.send(this.ERRORS.NO_CALLBACK);
+                console.log(data);
+            }
+        })
+    }
+
+}
+
 class P2chat {
     constructor(fs) {
         this.fs = fs;
@@ -5,9 +128,10 @@ class P2chat {
         this.conn;
         this.connections = {};
         this.othersSeperator = String.fromCharCode(8);
-        this.internalOthersSeperator = String.fromCharCode(9);
-
         this.id;
+        this.publicKey;
+        this.privateKey;
+        this.others;
     }
     init() {
         [this.publicKey, this.privateKey, this.others] = fs.parseData();
@@ -20,13 +144,11 @@ class P2chat {
         });
         this.peer.on("connection", (connection) => {
             this.addConnection(connection.peer, connection);
-            this.setConnectionIndicator(true);
             this.displayMessage(
                 "status",
                 "",
                 "connected to: " + this.conn.peer
             );
-            this.conn.on("data", this.doData);
         });
         this.peer.on("disconnected", () => {
             this.setConnectionIndicator(false);
@@ -59,6 +181,8 @@ class P2chat {
             "TestUser"
         );*/
         this.updateOthers();
+
+        setInterval(this.updateFile, 5000);
     }
     resetPeerId(newId) {
         this.peer.destroy();
@@ -94,8 +218,11 @@ class P2chat {
         this.conn.send(toSend);
     }
 
-    doData(data) {
+    doData(data, conn) {
+//        if (this.conn != conn) return;
+        console.log(this);
         console.log("received data", data);
+        if (p2chat.conn != this) return;
         if (typeof data == "String") {
             p2chat.displayMessage("data", "unkown", data);
             return;
@@ -188,9 +315,9 @@ class P2chat {
     async updateFile() {
         await fs.writeData(
             fs.convertJSON({
-                public: this.publicKey,
-                private: this.privateKey,
-                others: this.stringifyOthers(this.others),
+                public: p2chat.publicKey,
+                private: p2chat.privateKey,
+                others: p2chat.stringifyOthers(p2chat.others),
             })
         );
     }
@@ -216,9 +343,7 @@ class P2chat {
                 "Connection established with " + id
             );
         });
-        this.conn.on("data", function (data) {
-            p2chat.doData(data);
-        });
+        this.conn.on("data", this.doData);
         if (!change) this.conn = oldCon;
     }
 }
