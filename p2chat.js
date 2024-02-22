@@ -4,30 +4,69 @@ class chatNetwork {
         this.peer;
         this.currentConnection;
         this.id;
-        this.othersSeperator = String.fromCharCode(8);
+        this.othersSeparator = String.fromCharCode(8);
         this.key = {
-            public,
-            private
+            public: '',
+            private: ''
         }
-        this.connections = {
-
-        }
-        this.channels = {
-
-        };
-        this.knownUsers = {
-
-        }
-        this.callbacks = {
-            
-        }
-        this.DEFAULT_MSG = {
-            type: "default",
-            status: "none",
-            ok: true,
-            statusCode: 200,
-            data: {},
-            comment: ""
+        this.connections = {}
+        this.channels = {};
+        this.knownUsers = {}
+        this.callbacks = {}
+        this.DEFAULT = {
+            MSG: {
+                type: "default",
+                status: "none",
+                ok: true,
+                statusCode: 200,
+                data: {},
+                comment: ""
+            },
+            MIDDLEWARE: (callback, data, connection) => {
+                let out = callback(data,connection);
+                out.UUID = data.UUID;
+                return out;
+            },
+            CALLBACKS: {
+                "handshake":  (request,connection) => {
+                    console.log("handshake detected");
+                    console.log("handshake data: ",request);
+                    request.data.awknowledged = true;
+                    return request;
+                },
+                "message": (request, connection) => {
+                    if (this.getChannel(request.data.channelUUID)) {
+                        // Process message for a known channel
+                        this.addMessage(request.data.channelUUID,request.data.message);
+                        this.DEFAULT.MSG_HANDLERS[msg.type](request.data);
+                    } else {
+                        console.warn("Message received from unknown channel. Request:", request);
+                    }
+                },
+                "channel_invite": (request, connection) => {
+                    console.log("invitation from ",this.knownUsers[request.data.sentBy.id].nick || request.data.sentBy.id);
+                    return {
+                        data: {
+                            accepted: true
+                        }
+                    }
+                },
+                "channel_remove_request": (request, connection) => {
+                    console.log("being removed from channel",this.channels[request.data.channelUUID])
+                    return {data: {
+                        accepted: true
+                    }}
+                }
+            },
+            MSG_HANDLERS: {
+                "user_join": (request) => {
+                    let channel = this.getChannel(request.channelUUID);
+                    if (request.user && channel.members.includes(request.author)){
+                        channel.members.push(request.data.user);
+                        
+                    }
+                }
+            }
         }
         this.ERRORS = {
             NO_CALLBACK: {
@@ -37,23 +76,43 @@ class chatNetwork {
                 data: {},
                 ok: false
 
+            },
+            DISCONNECT: {
+                type: "error",
+                status: "fatal - ",
+                statusCode: 500,
+                data: {},
+                ok: false
+            }
+        }
+        this.SETTINGS = {
+            channels: {
+                maxLength: {type: "int", value: 1000}
             }
         }
         this.init();
     }
     init() {
-        [this.key.public,this.key.private,[this.channels,this.knownUsers]] = this.fs.parseData();
+        let tmpDat;
+        //get data from file
+        [this.key.public,this.key.private,tmpDat] = this.fs.parseData();
+        [this.channels,this.knownUsers] = JSON.parse(tmpDat);
+        //create peer using public key
         this.peer = new Peer(this.key.public);
         this.peer.on("open", (id) => {
             this.id = id;
             document.getElementById("your-id").value = id;
+            this.initConnections(this.knownUsers,this.channels);
         });
         this.peer.on("connection", (connection) => {
 
             this.addConnection(connection, connection.peer, {trusted: false, known: false});
             this.attemptHandshake(connection, (status) => {
+                if (!status.success) {
+                    this.removeConnection(connection,"unsuccessful handshake");
+                }
                 this.changeStatus(connection, status);
-            })
+            });
             
         })
     }
@@ -62,13 +121,16 @@ class chatNetwork {
         let randVal = newUUID();
         this.sendData(connection, {
             type: "handshake",
-            data: randVal,
+            data: {
+                randVal: randVal,
+                awknowledged: false
+            },
             
         }, (returnData) => {
             let stat = {};
-            stat.success = returnData.data == randVal;
+            stat.success = returnData.data.randVal == randVal && returnData.data.awknowledged;
             stat.userData = returnData.userData;
-            stat.known 
+            
             
             callback(stat);
         })
@@ -78,46 +140,203 @@ class chatNetwork {
     sendData(connection, data, callback) {
         if (!this.connections[connection.peer]) return false;
         let UUID = newUUID();
-        this.callbacks[UUID] = callback;
-        data.UUID = UUID;
+        this.callbacks[connection.peer][UUID] = callback;
+        data.callbackUUID = UUID;
         connection.send(data);
         return true;
     }
 
-    testConnection(connection) {
-        let status = {
-            known = false,
-            trusted = false,
-            handshake
-        };
-        let id = connection.peer;
-        if (this.knownUsers[id]) {
-            status.known = true;
-            status.trusted = this.knownUsers[id].isTrusted;
-            this.attemptHandshake(connection, (data))
-            if (status.trusted) {
-                this.attemptHandshake(connection,(success) => {
-                    status.handshake = success;
-                });
-            }
-            
-        }
-        
+
+    changeStatus(connection, status, hard = true) {
+        if (hard) //hard change, reset status
+            this.connections[connection.peer].status = status;
+        else //soft change, update status
+            this.connections[connection.peer].status = {...this.connections[connection.peer].status, ...status};
     }
 
     addConnection(connection, id, status) {
         if (!this.connections[id])
         this.connections[id] = {connection,status};
+        if (!this.callbacks[connection.peer])
+        this.callbacks[connection.peer] = {...this.DEFAULT.MSG.CALLBACKS};
+        //ADD HANDSHAKE HANDLING
         connection.on("data", (data) => {
-            if (this.callbacks[data.UUID]){
-                connection.send(this.callbacks[data.UUID](data));
+            let callback = this.callbacks[connection.peer][data.callbackUUID] || this.callbacks[connection.peer][data.type];
+            if (callback){
+                //connection.send(callback(data,connection,connection.send));
+                connection.send(this.DEFAULT.MIDDLEWARE(callback, data, connection));
             }
             else{
+                
                 connection.send(this.ERRORS.NO_CALLBACK);
                 console.log(data);
             }
+        });
+    }
+
+    removeConnection(connection, reason) {
+        let status = {...this.ERRORS.DISCONNECT};
+        status.reason += reason;
+        connection.send(status);
+        delete this.connections[connection.peer];
+        connection.close();
+    }
+    
+    getConnection(id) {
+        return this.connections[id];
+    }
+
+    getChannel(channelUUID) {
+        return this.channels[channelUUID];
+    }
+
+    addMessage(channelUUID, message) {
+        // Access the channel object directly
+        const channel = this.channels[channelUUID];
+        if (!channel) {
+            // Handle invalid channel UUID
+            console.log("no channel found for UUID",channelUUID)
+            return;
+        }
+    
+        message.timestamp = new Date();
+    
+        // Get or create the latest message blob
+        const latestBlob = channel.length > 0 ? channel[channel.length - 1] : {
+            timestamp: {
+                first: message.timestamp
+            },
+            authors: [],
+            messages: []
+        };
+    
+        // Add message to the latest blob
+        if (latestBlob.messages.length == 0) {
+            latestBlob.timestamp.first = message.timestamp;
+        }
+        latestBlob.messages.push(message);
+        if (!latestBlob.authors.includes(message.author)) {
+            latestBlob.authors.push(message.author);
+        }
+    
+        // Check for blob size limit and create a new blob if needed
+        if (latestBlob.messages.length > this.SETTINGS.channels.maxLength.value) {
+            // Mark the last message timestamp for the previous blob
+            latestBlob.timestamp.last = message.timestamp;
+    
+            // Create a new blob for subsequent messages and push it to the channel
+            channel.push({
+                timestamp: {
+                    previous: message.timestamp
+                },
+                authors: [],
+                messages: []
+            });
+        } else {
+            // Ensure the latest blob is present in the channel
+            if (!channel.includes(latestBlob)) {
+                channel.push(latestBlob);
+            }
+        }
+    }
+    
+    sendMessage(channelUUID, message) {
+        message.author ??= this.id;
+        this.addMessage(channelUUID, message);
+        for (member in this.channels[channelUUID].members) {
+            this.sendData(this.getConnection(member), {
+                type: "message",
+                status: "success",
+                ok: true,
+                data: {message}
+            })
+        }
+    }
+
+    inviteToChannel(channelUUID, userID) {
+        let channel = this.getChannel(channelUUID);
+        let user = this.getConnection(userID);
+        if (!user) return;
+        this.sendData(this.getConnection(user), {
+            type: "channel_invite",
+            data: {
+                name: channel.name,
+                members: channel.members,
+                passwordRequired: (!!channel.password),
+            },
+            status: "pending",
+            comment: "invitation to channel "+channelName,
+            ok: true
+        }, (response) => {
+            if (response.data.accepted) {
+                channel.members.push(user);
+                console.log(user,"has accepted request to join channel");
+                this.sendMessage(channel.id, {
+                    type: "event",
+                    data: {
+                        event: "user_join",
+                        channel: channelUUID,
+                        user,
+                        text:`${user} has accepted the invite to join the channel`
+                    }
+                });
+
+            } else {
+                console.log(user,"has declined to join channel");
+            }
         })
     }
+    
+
+    createChannel(channelName, channelPassword = null, members = [this.id]) {
+        const channel = {
+            id: newUUID(),
+            name: channelName,
+            members: [],
+            messages: {}
+        }
+        let passwordRequired = !(channelPassword === null || channelPassword === undefined);
+        if (passwordRequired) channel.password = channelPassword;
+        this.channels[channel.id] = channel;
+        members.forEach(user => {
+            this.sendData(this.getConnection(user), {
+                type: "channel_invite",
+                data: {
+                    name: channelName,
+                    members: channel.members,
+                    passwordRequired,
+                    password: channelPassword //maybe remove this line?
+                },
+                status: "pending",
+                comment: "invitation to channel "+channelName,
+                ok: true
+            }, (response) => {
+                if (response.data.accepted) {
+                    channel.members.push(user);
+                    console.log(user,"has accepted request to join channel");
+                    this.sendMessage(channel.id, {
+                        text:`${user} has accepted the invite to join the channel`
+                    });
+                } else {
+                    console.log(user,"has declined to join channel");
+                }
+            })
+        })
+
+        members.forEach(user => {
+            this.sendData(this.getConnection(user), {
+                type: "channel_created",
+                data: {channel},
+                status: "success",
+                comment: `Channel "${channelName}" created!`,
+                ok: true
+            }, (response) => {
+                // Handle potential response from user
+                console.log(`User ${user} response to channel creation:`, response);
+            });
+        });
+    }
+    
 
 }
 
@@ -127,7 +346,7 @@ class P2chat {
         this.peer;
         this.conn;
         this.connections = {};
-        this.othersSeperator = String.fromCharCode(8);
+        this.othersSeparator = String.fromCharCode(8);
         this.id;
         this.publicKey;
         this.privateKey;
@@ -196,7 +415,7 @@ class P2chat {
         alert("ID copied to clipboard!");
     }
 
-    sendMessage(e) {
+    eventSendMessage(e) {
         if (e.key != "Enter") return;
         let message = document.getElementById("message").value;
         if (p2chat.conn && message) {
@@ -273,7 +492,7 @@ class P2chat {
         others.forEach((other) => {
             out.push(JSON.stringify(other));
         });
-        out = out.join(this.othersSeperator);
+        out = out.join(this.othersSeparator);
         return out;
     }
 
