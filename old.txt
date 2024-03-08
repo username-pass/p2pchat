@@ -1,0 +1,65 @@
+initGossip (freq, percentage) {
+        setInterval(() => {
+            let connectionObjectKeys = Object.keys(this.connections);
+            for (i = 0; i < Math.ceil(connectionObjectKeys.length * percentage / 100); i++) {
+                sendData(this.connections[connectionObjectKeys[i]].peer.id,{
+                    type: "gossip",
+                    data: {
+                        depth: 0,
+                        timestamp: Date.now(),
+                        connections: this.connections,
+                        changes: null,
+                    },
+                    ok: true,
+                    statusMessage: "gossip protocol update request"
+                }, (returnedData) => {
+                    statusLog("gossip","got gossip back from ", returnedData.meta.author,"data: ",returnedData);
+                    if (returnedData.ok) {
+                        //add new connections
+                        this.connections = safeCombineConnections(this.connections, returnedData.connections);
+                    }
+                })
+            }
+        },freq);
+    }
+
+    safeCombineConnections(oldConnections, newConnections) {
+        let oldKeys = Object.keys(oldConnections);
+        let newKeys = Object.keys(newConnections);
+        for (newKey in newKeys) {
+            if (oldKeys.contains(newKey)) {
+
+            } else {
+                oldConnections
+            }
+        }
+    }
+
+    addConnection(peer) {
+        //peer is not just the id, but an object with all peer data
+        let connection = this.rawPeer.connect(peer.id);
+        let netConnections = this.getConnections(peer);
+        this.connections[peer.id] = {
+            connection,
+            peer,
+            netConnections
+        }
+    }
+    getConnections(peer) {
+        let connections = {};
+        sendData(peer.id,{
+            type:"connectionMap",
+            data: {
+                depth: 0,
+                connections:this.connections,
+            },
+            ok: true,
+            statusMessage: "looking for connections"
+
+        }, (returnedData) => {
+            statusLog("peerStatus","got connections list from",returnedData.meta.author,"returned data: ",returnedData)
+            if (returnedData.ok)
+                connections = {...returnedData.connections};
+        })
+        return connections;
+    }
