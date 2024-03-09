@@ -1,4 +1,3 @@
-
 let myIdEl = document.getElementById("my-id");
 let otherIdEl = document.getElementById("other-id");
 let connectBtn = document.getElementById("connect-button");
@@ -8,23 +7,38 @@ async function init() {
     peer = new NetPeer();
     await peer.init();
     myIdEl.value = peer.id;
-    connectBtn.addEventListener("click",() => {
+    connectBtn.addEventListener("click", () => {
         peer.addConnection(otherIdEl.value);
     });
-    gossipBtn.addEventListener("click",() => {
-        peer.sendData(peer.peers[Object.keys(peer.peers)[0]], {
-            type: "gossip",
-            recipient: peer.id,
-            data:{
-                testprop: true,
-                otherTest: "testing",
-
+    gossipBtn.addEventListener("click", () => {
+        peer.gossip(
+            peer.peers[Object.keys(peer.peers)[0]],
+            {
+                recipient: peer.id,
+                ok: true,
+                type: "default",
+                data: {
+                    testprop: true,
+                    otherTest: "testing",
+                },
             },
-            ok: true
-        }, (data) => {
-            statusLog("debug","received data ",data);
-        })
-    })
+            (data) => {
+                statusLog("debug", "received data:", data);
+            }
+        );
+        // peer.sendData(peer.peers[Object.keys(peer.peers)[0]], {
+        //     type: "gossip",
+        //     recipient: peer.peers[Object.keys(peer.peers)[0]].id,
+        //     data:{
+        //         testprop: true,
+        //         otherTest: "testing",
+
+        //     },
+        //     ok: true
+        // }, (data) => {
+        //     statusLog("debug","received data ",data);
+        // })
+    });
 }
 
-init()
+init();

@@ -120,7 +120,7 @@ class NetPeer {
     //settings
     getDefaultSettings() {
         this.settings = {
-            gossipPercentage: 100,
+            gossipPercentage: 1,
 
         }
     }
@@ -131,6 +131,14 @@ class NetPeer {
 
     //data sending 
     sendData(peer, data, callback, isGossip=false) {
+        if (typeof peer == "string") {
+            if (this.peers[peer]) peer = this.peers[peer];
+            else return;
+        }
+        if (Object.keys(peer).length == 1) {
+            if (this.peers[peer.id]) peer = this.peers[peer.id];
+            else return;
+        }
         if (!peer.connected) return statusLog("debug","peer not connected, but attempted to send data",peer, data,callback);
         statusLog("debug","peer id",peer.id,"peers",this.peers);
         if (this.peers[peer.id]){
@@ -145,25 +153,31 @@ class NetPeer {
             let tmpData = data.data;
             tmpData = encrypt(JSON.stringify(tmpData),this.key.private);
             data.data = tmpData;
-            statusLog("debug","sending data",data);
+            statusLog("debug","sending data",data,peer);
             this.peers[peer.id].connection.send(data);
         } else {
+            statusLog("debug","not in peers list");
             if (isGossip) return;
+            statusLog("debug","not debug, so sending gossip");
             this.gossip(peer, data, callback);
         }
     }
  
-    gossip (peer = this.id, data, callback) {
-        statusLog("debug", {peer,data,callback});
-        if (this.peers[peer]) this.sendData(peer,data,callback,true);
-        let randomPeers = randomProperties(this.peers,Math.ceil(this.settings.gossipPercentage * Object.keys(this.peers).length));
-        statusLog("debug", {randomPeers});
+    gossip (peer = newPeer(this.id), data, callback) {
+        console.log("debug", {peer,data,callback});
+        if (this.peers[peer]) this.sendData(this.peers[peer],data,callback,true);
+        let randomPeers = {}; //randomProperties(this.peers,Math.ceil(this.settings.gossipPercentage * Object.keys(this.peers).length),{connected: true});
+        Object.keys(this.peers).forEach((peer, i) => {
+            if (i < 2 || Math.random() < this.settings.gossipPercentage) randomPeers[peer] = this.peers[peer];
+
+        })
+        console.log("debug", {randomPeers});
         let gossipData;
         if (data.type != "gossip"){
             gossipData = {
                 type: "gossip",
                 data: {
-                    recipient: peer,
+                    recipient: peer.id,
                     depth: 0,
                     path: [sign(this.id,this.key.private)],
                     data
@@ -176,12 +190,20 @@ class NetPeer {
             gossipData.data.path.push(sign(this.id,this.key.private));
         }
         Object.keys(randomPeers).forEach(randPeer => {
-            sendData(randomPeers[randPeer], gossipData, callback);
+            statusLog("debug","gossiping to ",randomPeers[randPeer]);
+            if (randomPeers[randPeer].connected)
+            this.sendData(randomPeers[randPeer], gossipData, callback, true);
         });
     }
 
     importPeers(peers = {}) {
         this.peers = peers;
+    }
+
+    //make a  new peer object, not add a new peer to the peers
+
+    newPeer (id = "") {
+        return {id};
     }
 
     //handler methods
@@ -201,8 +223,10 @@ class NetPeer {
                 handlers: {}
             };
         }
-        if (!hasConnection)
+        if (!hasConnection){
             peerObj.connection = this.rawPeer.connect(id);
+            peerObj.connected = true;
+        }
         else
             peerObj.connection = connection;
         statusLog(peerObj.connection);
@@ -212,7 +236,9 @@ class NetPeer {
             this.doData(peerObj,data);
         });
         peerObj.connection.on("open", () => {
-            peerObj.connected = true;
+            statusLog("debug","peer",peerObj,"opened, and is now available for connections");
+            this.peers[peerObj.id].connected = true;
+            //peerObj.connected = true;
         })
         peerObj.connection.on("close", () => {
             this.removeConnection(peerObj.id,true);
@@ -225,7 +251,7 @@ class NetPeer {
         statusLog("peerstatus","connection being removed from ",id);
         let peerObj = this.peers[id];
         if (!alreadyDisconnected) {
-            sendData(peerObj,{
+            this.sendData(peerObj,{
                 type:"status",
                 data: {
                     status: "disconnecting",
@@ -233,7 +259,7 @@ class NetPeer {
                 },
                 ok: true
             }, (finalReq) => {
-                doData(finalReq);
+                this.doData(finalReq);
             });
             peerObj.connection.disconnect();
         }
@@ -253,7 +279,7 @@ class NetPeer {
     addHandler(peerObj, handler,isDefault=false) {
         if (isDefault) {
             this.defaultHandlers[handler.type] = handler.callback;
-            updateHandlers();
+            this.updateHandlers();
         }
         //peerObj.handlers ??= {};
         peerObj.handlers[handler.type] = handler.callback;
@@ -273,7 +299,7 @@ class NetPeer {
     }
     updateHandlers() {
         Object.keys(this.peers).forEach(peer => {
-            setUpHandlers(peer);
+            this.setUpHandlers(peer);
         });
     }
 
@@ -296,10 +322,11 @@ class NetPeer {
             return req.data;
         }
         this.defaultHandlers.gossip = (req) => {
+            statusLog("debug","received gossip data ",req);
             if (req.data.recipient.id == this.id) {
                 this.runHandler(req.type,undefined,req.data.data);
             } else {
-                this.gossip(req.data.recipient,req,(data) => {
+                this.gossip(req.recipient,req,(data) => {
                     this.sendData(req.author, data, (req) => {
                         statusLog("gossip","received and sent gossip data to ",req.data.recipient,"from",req.author);
                     },true)
