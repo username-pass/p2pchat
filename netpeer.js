@@ -57,7 +57,8 @@ class NetPeer {
  * @param {boolean} [isGossip=false] - Optional parameter indicating whether the data is for gossip purposes.
  */
   sendData(peer, data, callback, isGossip = false) {
-    if (typeof peer == "string") {
+    this.waitForInit().then(() => {
+      if (typeof peer == "string") {
       if (this.peers[peer]) peer = this.peers[peer];
       else return;
     }
@@ -80,11 +81,11 @@ class NetPeer {
         type: callbackUUID,
         callback,
       };
-      data.author = sign(this.id, this.key.private);
+      data.author = sign(this.id, this.privateKey);
       this.addHandler(peer, handler);
       data.callbackUUID = callbackUUID;
       let tmpData = data.data;
-      tmpData = encrypt(JSON.stringify(tmpData), this.key.private);
+      tmpData = encrypt(JSON.stringify(tmpData), this.publicKey);
       data.data = tmpData;
       statusLog("debug", "sending data", data, peer);
       this.peers[peer.id].connection.send(data);
@@ -94,6 +95,7 @@ class NetPeer {
       statusLog("debug", "not debug, so sending gossip");
     //   this.gossip(peer, data, callback);
     }
+    });
   }
 
   importPeers(peers = {}) {
