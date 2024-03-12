@@ -14,6 +14,14 @@ class NetPeer {
       this.publicKey = keys.publicKey;
       this.privateKey = keys.privateKey;
       this.__initphase++;
+      exportKeys(true, this.publicKey).then((publicKey) => {
+        this.publicKeyRaw = publicKey;
+        this.__initphase++;
+      });
+      exportKeys(false, this.privateKey).then((privateKey) => {
+        this.privateKeyRaw = privateKey;
+        this.__initphase++;
+      });
     });
     this.rawPeer = new Peer(this.id, this.peerOptions);
     this.init();
@@ -31,7 +39,7 @@ class NetPeer {
   }
 
   async waitForInit() {
-    while (this.__initphase < 2) {
+    while (this.__initphase < 4) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
@@ -48,56 +56,34 @@ class NetPeer {
   }
 
   //data sending
-/**
- * Sends data to a peer.
- *
- * @param {string|Object} peer - The peer to send data to. Can be either a peer ID or a peer object.
- * @param {Object} data - The data to send.
- * @param {Function} callback - The callback function to be executed after sending the data.
- * @param {boolean} [isGossip=false] - Optional parameter indicating whether the data is for gossip purposes.
- */
   sendData(peer, data, callback, isGossip = false) {
     this.waitForInit().then(() => {
-      if (typeof peer == "string") {
-      if (this.peers[peer]) peer = this.peers[peer];
-      else return;
-    }
-    if (Object.keys(peer).length == 1) {
-      if (this.peers[peer.id]) peer = this.peers[peer.id];
-      else return;
-    }
-    if (!peer.connected)
-      return statusLog(
-        "debug",
-        "peer not connected, but attempted to send data",
-        peer,
-        data,
-        callback
-      );
-    statusLog("debug", "peer id", peer.id, "peers", this.peers);
-    if (this.peers[peer.id]) {
-      let callbackUUID = generateUUID();
-      let handler = {
+      const targetPeer = typeof peer === "string" ? this.peers[peer] : peer;
+      if (!targetPeer || !targetPeer.connected) {
+        return statusLog(
+          "debug",
+          "Peer not connected, but attempted to send data",
+          targetPeer,
+          data,
+          callback
+        );
+      }
+
+      const callbackUUID = generateUUID();
+      const handler = {
         type: callbackUUID,
         callback,
       };
+
       data.author = sign(this.id, this.privateKey);
-      this.addHandler(peer, handler);
+      this.addHandler(targetPeer, handler);
       data.callbackUUID = callbackUUID;
-      let tmpData = data.data;
-      tmpData = encrypt(JSON.stringify(tmpData), this.publicKey);
-      data.data = tmpData;
-      statusLog("debug", "sending data", data, peer);
-      this.peers[peer.id].connection.send(data);
-    } else {
-      statusLog("debug", "not in peers list");
-      if (isGossip) return;
-      statusLog("debug", "not debug, so sending gossip");
-    //   this.gossip(peer, data, callback);
-    }
+      data.data = encrypt(JSON.stringify(data.data), this.publicKey);
+
+      statusLog("debug", "Sending data", data, targetPeer);
+      targetPeer.connection.send(data);
     });
   }
-
   importPeers(peers = {}) {
     this.peers = peers;
   }
@@ -110,13 +96,8 @@ class NetPeer {
 
   //handler methods
   addConnection(id, hasConnection = false, connection) {
-    let newConnection = {};
-    let peerObj;
-    statusLog("debug", this, this.peers);
-    if (this.peers.hasOwnProperty(id)) {
-      peerObj = this.peers[id];
-    } else {
-      peerObj = {
+    this.waitForInit().then(() => {
+      let peerObj = this.peers[id] || {
         id,
         known: false,
         trusted: false,
@@ -124,58 +105,53 @@ class NetPeer {
         connected: false,
         handlers: {},
       };
-    }
-    if (!hasConnection) {
-      peerObj.connection = this.rawPeer.connect(id);
-      peerObj.connected = true;
-    } else peerObj.connection = connection;
-    statusLog(peerObj.connection);
-    peerObj.connection.send({
-      type: "default",
-      data: { test: encrypt("test", "") },
+
+      if (!hasConnection) {
+        peerObj.connection = this.rawPeer.connect(id);
+        peerObj.connected = true;
+      } else {
+        peerObj.connection = connection;
+      }
+
+      peerObj.connection.send({
+        type: "default",
+        data: { test: encrypt("test", "") },
+      });
+
+      peerObj.connection.on("data", (data) => {
+        this.doData(peerObj, data);
+      });
+
+      peerObj.connection.on("open", () => {
+        this.peers[peerObj.id].connected = true;
+      });
+
+      peerObj.connection.on("close", () => {
+        this.removeConnection(peerObj.id, true);
+      });
+
+      this.setUpHandlers(peerObj);
+      this.peers[id] = peerObj;
     });
-    peerObj.connection.on("data", (data) => {
-      //statusLog("peerstatus","received data ",data);
-      this.doData(peerObj, data);
-    });
-    peerObj.connection.on("open", () => {
-      statusLog(
-        "debug",
-        "peer",
-        peerObj,
-        "opened, and is now available for connections"
-      );
-      this.peers[peerObj.id].connected = true;
-      //peerObj.connected = true;
-    });
-    peerObj.connection.on("close", () => {
-      this.removeConnection(peerObj.id, true);
-    });
-    this.setUpHandlers(peerObj);
-    this.peers[id] ??= peerObj;
   }
   removeConnection(id, alreadyDisconnected = false) {
-    if (!this.peers.hasOwnProperty(id)) return; //no such peer found
-    statusLog("peerstatus", "connection being removed from ", id);
-    let peerObj = this.peers[id];
-    if (!alreadyDisconnected) {
-      this.sendData(
-        peerObj,
-        {
+    this.waitForInit().then(() => {
+      if (!this.peers.hasOwnProperty(id)) return; //no such peer found
+      statusLog("peerstatus", "connection being removed from ", id);
+      let peerObj = this.peers[id];
+      if (!alreadyDisconnected) {
+        this.sendData(peerObj, {
           type: "status",
           data: {
             status: "disconnecting",
             finalRequestsAccepted: true,
           },
           ok: true,
-        },
-        (finalReq) => {
-          this.doData(finalReq);
-        }
-      );
-      peerObj.connection.disconnect();
-    }
-    peerObj.connected = false;
+        }, this.doData);
+        peerObj.connection.disconnect();
+      }
+      peerObj.connected = false;
+    });
   }
   setUpHandlers(peerObj) {
     statusLog("debug", "inithandler", this.handlers);
@@ -219,10 +195,10 @@ class NetPeer {
     return "";
   }
 
-/**
- * Returns the default handlers for the netpeer object.
- * @returns {Object} The default handlers object.
- */
+  /**
+   * Returns the default handlers for the netpeer object.
+   * @returns {Object} The default handlers object.
+   */
   getDefaultHandlers() {
     this.middleware = (req, res, peer) => {
       req.id = peer.id;
