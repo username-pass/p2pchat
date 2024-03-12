@@ -1,0 +1,73 @@
+//make peer
+    //initiate connections
+    //get encryption working
+    //find network
+    //gossip protocol
+    //initiate everything
+    //upload data from file
+    //input data
+    //initiate those connections
+    //NO GPT!!
+    //Methods:
+    //init
+    //initiate everything, make everything work, and set everything up
+    //sendData (peer id)
+    //check if peer is known
+    //check if connected
+    //if connected, send data directly
+    //create a callback and UUID
+    //add that to the message
+    //when UUID received, run callback associate with it
+    //if not, attempt to connect and send data
+    //if it fails, queue message (?)
+    //if not known, then send data using gossip protocol throughout the network
+    //addConnection (id and/or connection)
+    /*
+            //add id to known peers list with trusted and verified = false
+            //attempt to connect
+                //if unsuccessful, return
+                //if successful, add connection to connections list
+                    //add actual peerjs connection, under connection
+                    //add peer object
+                    //add initial connection time
+                    //increment connection counter
+                    */
+    //add id to known peers
+    //attempt to connect
+    //if you can connect, add connection to peers entry, and set .connected = true
+    //otherwise, set .connected = false, and have an empty object
+    //removeConnection (id)
+    //find connection in peers list
+    //send the fact that you are disconnecting, and if there are any last messages
+    //record/execute last messages
+    //run .disconnect()
+    //set connected = false
+    //set connection object to blank object
+    //broadcast that you are disconnecting through gossip
+    //if not found, then return that nothing was removed
+    //gossip (receiver, message)
+    //choose random percentage of connections to send message to
+    //send the message to them as a gossip, with data being the receiver, and the full message for the receiver to receive
+    //to be encrypted
+    //setUpHandlers (peerid)
+    //set up default handlers
+    //gossip handler
+    //when data is received
+    //if it's for you, deal with data (maybe unencrypt)
+    //if not
+    //if depth > MAX_DEPTH, or you received it already, drop
+    //if not,
+    //if receiver is one of your peers, send data to that peer
+    //if receiver isn't one of your peers, run gossip with that message, and add yourself to the message chain
+    //data
+    //log data
+    //check for special circumstances
+    //if peer is the next of kin for a dead peer, move all callbacks to that one
+    //add handler (type, handler, default, id)
+    //if it's default
+    //add handler to default handlers example with the type as the key
+    //otherwise look for connection with the the id, and add handler there
+    //dealWithData (id, data)
+    //middleware meant to deal with connections, and run the appropriate handlers
+    //first, check for uuid, and if found, run the associated handler
+    //then, check for default handlers, and run those

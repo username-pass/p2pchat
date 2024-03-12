@@ -1,4 +1,3 @@
-
 /**
  * Fast UUID generator, RFC4122 version 4 compliant.
  * @author Jeff Ward (jcward.com).
@@ -7,40 +6,59 @@
  **/
 function generateUUID() {
   var self = {};
-  var lut = []; for (var i=0; i<256; i++) { lut[i] = (i<16?'0':'')+(i).toString(16); }
-  self.generate = function() {
-    var d0 = Math.random()*0xffffffff|0;
-    var d1 = Math.random()*0xffffffff|0;
-    var d2 = Math.random()*0xffffffff|0;
-    var d3 = Math.random()*0xffffffff|0;
-    return lut[d0&0xff]+lut[d0>>8&0xff]+lut[d0>>16&0xff]+lut[d0>>24&0xff]+'-'+
-      lut[d1&0xff]+lut[d1>>8&0xff]+'-'+lut[d1>>16&0x0f|0x40]+lut[d1>>24&0xff]+'-'+
-      lut[d2&0x3f|0x80]+lut[d2>>8&0xff]+'-'+lut[d2>>16&0xff]+lut[d2>>24&0xff]+
-      lut[d3&0xff]+lut[d3>>8&0xff]+lut[d3>>16&0xff]+lut[d3>>24&0xff];
+  var lut = [];
+  for (var i = 0; i < 256; i++) {
+    lut[i] = (i < 16 ? "0" : "") + i.toString(16);
   }
+  self.generate = function () {
+    var d0 = (Math.random() * 0xffffffff) | 0;
+    var d1 = (Math.random() * 0xffffffff) | 0;
+    var d2 = (Math.random() * 0xffffffff) | 0;
+    var d3 = (Math.random() * 0xffffffff) | 0;
+    return (
+      lut[d0 & 0xff] +
+      lut[(d0 >> 8) & 0xff] +
+      lut[(d0 >> 16) & 0xff] +
+      lut[(d0 >> 24) & 0xff] +
+      "-" +
+      lut[d1 & 0xff] +
+      lut[(d1 >> 8) & 0xff] +
+      "-" +
+      lut[((d1 >> 16) & 0x0f) | 0x40] +
+      lut[(d1 >> 24) & 0xff] +
+      "-" +
+      lut[(d2 & 0x3f) | 0x80] +
+      lut[(d2 >> 8) & 0xff] +
+      "-" +
+      lut[(d2 >> 16) & 0xff] +
+      lut[(d2 >> 24) & 0xff] +
+      lut[d3 & 0xff] +
+      lut[(d3 >> 8) & 0xff] +
+      lut[(d3 >> 16) & 0xff] +
+      lut[(d3 >> 24) & 0xff]
+    );
+  };
   return self.generate();
 }
-
 
 const logs = {};
 
 function statusLog(channel, ...toLog) {
   logs[channel] ??= [];
   // toLog.unshift(statusLog.caller);
-  toLog.unshift((new Date()).toISOString());
-  
+  toLog.unshift(new Date().toISOString());
+
   logs[channel].push(toLog);
-  console.log(channel,":",...toLog);
+  console.log(channel, ":", ...toLog);
 }
 
-function randomProperty (obj,returnKey=false) {
+function randomProperty(obj, returnKey = false) {
   let keys = Object.keys(obj);
-  let key = keys[ keys.length * Math.random() << 0];
-  if (returnKey)
-  return [key,obj[key]];
+  let key = keys[(keys.length * Math.random()) << 0];
+  if (returnKey) return [key, obj[key]];
   return obj[key];
-};
-function randomProperties(obj,amount) {
+}
+function randomProperties(obj, amount) {
   let props = {};
   for (i = 0; i < amount; i++) {
     let [key, prop] = randomProperty(obj);
