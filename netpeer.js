@@ -3,27 +3,37 @@ class NetPeer {
     this.id = id; // actual peer id, may be split into multiple parts
     this.options = options; //options for the peer, may be seperated to raw peer options, and other options for the netPeer
     this.peerOptions = options.peerOptions;
+    /* Setup */
     this.importPeers(this.options.peers);
     this.getDefaultHandlers();
     this.importHandlers(this.options.handlers);
     this.importSettings(this.options.settings);
-    this.key = {
-      public: "",
-      private: "",
-    };
+    /* Init */
+    this.__initphase = 0;
+    generateECDSAKeys().then((keys) => {
+      this.publicKey = keys.publicKey;
+      this.privateKey = keys.privateKey;
+      this.__initphase++;
+    });
+    this.rawPeer = new Peer(this.id, this.peerOptions);
+    this.init();
+    /* Debug */
     statusLog("debug", this);
   }
-  async init() {
-    await new Promise((resolve, reject) => {
-      this.rawPeer = new Peer(this.id, this.peerOptions);
-      this.rawPeer.on("open", (id) => {
-        this.id = id;
-        resolve();
-      });
+  init() {
+    this.rawPeer.on("open", (id) => {
+      this.id = id;
+      this.__initphase++;
     });
     this.rawPeer.on("connection", (connection) => {
       this.addConnection(connection.peer, true, connection);
     });
+  }
+
+  async waitForInit() {
+    while (this.__initphase < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }
   //getters
 
@@ -38,6 +48,14 @@ class NetPeer {
   }
 
   //data sending
+/**
+ * Sends data to a peer.
+ *
+ * @param {string|Object} peer - The peer to send data to. Can be either a peer ID or a peer object.
+ * @param {Object} data - The data to send.
+ * @param {Function} callback - The callback function to be executed after sending the data.
+ * @param {boolean} [isGossip=false] - Optional parameter indicating whether the data is for gossip purposes.
+ */
   sendData(peer, data, callback, isGossip = false) {
     if (typeof peer == "string") {
       if (this.peers[peer]) peer = this.peers[peer];
@@ -74,41 +92,8 @@ class NetPeer {
       statusLog("debug", "not in peers list");
       if (isGossip) return;
       statusLog("debug", "not debug, so sending gossip");
-      this.gossip(peer, data, callback);
+    //   this.gossip(peer, data, callback);
     }
-  }
-
-  gossip(peer = newPeer(this.id), data, callback) {
-    console.log("debug", { peer, data, callback });
-    if (this.peers[peer]) this.sendData(this.peers[peer], data, callback, true);
-    let randomPeers = {}; //randomProperties(this.peers,Math.ceil(this.settings.gossipPercentage * Object.keys(this.peers).length),{connected: true});
-    Object.keys(this.peers).forEach((peer, i) => {
-      if (i < 2 || Math.random() < this.settings.gossipPercentage)
-        randomPeers[peer] = this.peers[peer];
-    });
-    console.log("debug", { randomPeers });
-    let gossipData;
-    if (data.type != "gossip") {
-      gossipData = {
-        type: "gossip",
-        data: {
-          recipient: peer.id,
-          depth: 0,
-          path: [sign(this.id, this.key.private)],
-          data,
-        },
-        ok: true,
-      };
-    } else {
-      gossipData = data;
-      gossipData.data.depth++;
-      gossipData.data.path.push(sign(this.id, this.key.private));
-    }
-    Object.keys(randomPeers).forEach((randPeer) => {
-      statusLog("debug", "gossiping to ", randomPeers[randPeer]);
-      if (randomPeers[randPeer].connected)
-        this.sendData(randomPeers[randPeer], gossipData, callback, true);
-    });
   }
 
   importPeers(peers = {}) {
@@ -232,6 +217,10 @@ class NetPeer {
     return "";
   }
 
+/**
+ * Returns the default handlers for the netpeer object.
+ * @returns {Object} The default handlers object.
+ */
   getDefaultHandlers() {
     this.middleware = (req, res, peer) => {
       req.id = peer.id;
@@ -276,4 +265,38 @@ class NetPeer {
     //statusLog("peerstatus","received data from",peer,data);
     this.runHandler(data.type, peer, data);
   }
+
+  // this is not needed for now
+  //   gossip(peer = newPeer(this.id), data, callback) {
+  //     console.log("debug", { peer, data, callback });
+  //     if (this.peers[peer]) this.sendData(this.peers[peer], data, callback, true);
+  //     let randomPeers = {}; //randomProperties(this.peers,Math.ceil(this.settings.gossipPercentage * Object.keys(this.peers).length),{connected: true});
+  //     Object.keys(this.peers).forEach((peer, i) => {
+  //       if (i < 2 || Math.random() < this.settings.gossipPercentage)
+  //         randomPeers[peer] = this.peers[peer];
+  //     });
+  //     console.log("debug", { randomPeers });
+  //     let gossipData;
+  //     if (data.type != "gossip") {
+  //       gossipData = {
+  //         type: "gossip",
+  //         data: {
+  //           recipient: peer.id,
+  //           depth: 0,
+  //           path: [sign(this.id, this.key.private)],
+  //           data,
+  //         },
+  //         ok: true,
+  //       };
+  //     } else {
+  //       gossipData = data;
+  //       gossipData.data.depth++;
+  //       gossipData.data.path.push(sign(this.id, this.key.private));
+  //     }
+  //     Object.keys(randomPeers).forEach((randPeer) => {
+  //       statusLog("debug", "gossiping to ", randomPeers[randPeer]);
+  //       if (randomPeers[randPeer].connected)
+  //         this.sendData(randomPeers[randPeer], gossipData, callback, true);
+  //     });
+  //   }
 }
