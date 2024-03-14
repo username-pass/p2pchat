@@ -48,53 +48,53 @@ class NetPeer {
   }
 
   //data sending
-/**
- * Sends data to a peer.
- *
- * @param {string|Object} peer - The peer to send data to. Can be either a peer ID or a peer object.
- * @param {Object} data - The data to send.
- * @param {Function} callback - The callback function to be executed after sending the data.
- * @param {boolean} [isGossip=false] - Optional parameter indicating whether the data is for gossip purposes.
- */
+  /**
+   * Sends data to a peer.
+   *
+   * @param {string|Object} peer - The peer to send data to. Can be either a peer ID or a peer object.
+   * @param {Object} data - The data to send.
+   * @param {Function} callback - The callback function to be executed after sending the data.
+   * @param {boolean} [isGossip=false] - Optional parameter indicating whether the data is for gossip purposes.
+   */
   sendData(peer, data, callback, isGossip = false) {
     this.waitForInit().then(() => {
       if (typeof peer == "string") {
-      if (this.peers[peer]) peer = this.peers[peer];
-      else return;
-    }
-    if (Object.keys(peer).length == 1) {
-      if (this.peers[peer.id]) peer = this.peers[peer.id];
-      else return;
-    }
-    if (!peer.connected)
-      return statusLog(
-        "debug",
-        "peer not connected, but attempted to send data",
-        peer,
-        data,
-        callback
-      );
-    statusLog("debug", "peer id", peer.id, "peers", this.peers);
-    if (this.peers[peer.id]) {
-      let callbackUUID = generateUUID();
-      let handler = {
-        type: callbackUUID,
-        callback,
-      };
-      data.author = sign(this.id, this.privateKey);
-      this.addHandler(peer, handler);
-      data.callbackUUID = callbackUUID;
-      let tmpData = data.data;
-      tmpData = encrypt(JSON.stringify(tmpData), this.publicKey);
-      data.data = tmpData;
-      statusLog("debug", "sending data", data, peer);
-      this.peers[peer.id].connection.send(data);
-    } else {
-      statusLog("debug", "not in peers list");
-      if (isGossip) return;
-      statusLog("debug", "not debug, so sending gossip");
-    //   this.gossip(peer, data, callback);
-    }
+        if (this.peers[peer]) peer = this.peers[peer];
+        else return;
+      }
+      if (Object.keys(peer).length == 1) {
+        if (this.peers[peer.id]) peer = this.peers[peer.id];
+        else return;
+      }
+      if (!peer.connected)
+        return statusLog(
+          "debug",
+          "peer not connected, but attempted to send data",
+          peer,
+          data,
+          callback
+        );
+      statusLog("debug", "peer id", peer.id, "peers", this.peers);
+      if (this.peers[peer.id]) {
+        let callbackUUID = generateUUID();
+        let handler = {
+          type: callbackUUID,
+          callback,
+        };
+        data.author = sign(this.id, this.privateKey);
+        this.addHandler(peer, handler);
+        data.callbackUUID = callbackUUID;
+        let tmpData = data.data;
+        tmpData = encrypt(JSON.stringify(tmpData), this.publicKey);
+        data.data = tmpData;
+        statusLog("debug", "sending data", data, peer);
+        this.peers[peer.id].connection.send(data);
+      } else {
+        statusLog("debug", "not in peers list");
+        if (isGossip) return;
+        statusLog("debug", "not debug, so sending gossip");
+        //   this.gossip(peer, data, callback);
+      }
     });
   }
 
@@ -219,10 +219,10 @@ class NetPeer {
     return "";
   }
 
-/**
- * Returns the default handlers for the netpeer object.
- * @returns {Object} The default handlers object.
- */
+  /**
+   * Returns the default handlers for the netpeer object.
+   * @returns {Object} The default handlers object.
+   */
   getDefaultHandlers() {
     this.middleware = (req, res, peer) => {
       req.id = peer.id;
