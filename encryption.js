@@ -1,24 +1,52 @@
 //PLACEHOLDERS
-function encrypt(data, private) {
-  return btoa(data);
-}
-
-function decrypt(data, public) {
-  return atob(data);
-}
-
-function sign(data, private) {
+function encrypt(data, public) {
   return data;
 }
 
-function verify(data, public) {
-  return true;
+function decrypt(data, private) {
+  return data;
+}
+
+/**
+ * Signs the given data using the provided private key.
+ * @param {ArrayBuffer} data - The data to be signed.
+ * @param {CryptoKey} private - The private key used for signing.
+ * @returns {Promise<ArrayBuffer>} A promise that resolves with the signature as an ArrayBuffer.
+ */
+async function sign(data, private) {
+  return await crypto.subtle.sign(
+    {
+      name: "ECDSA",
+      hash: { name: "SHA-512" },
+    },
+    private,
+    data
+  );
+}
+
+/**
+ * Verifies the signature of the given data using the provided public key.
+ *
+ * @param {ArrayBuffer} data - The data to be verified.
+ * @param {CryptoKey} public - The public key used for verification.
+ * @returns {Promise<boolean>} A promise that resolves to a boolean indicating whether the signature is valid.
+ */
+async function verify(signature, data, public) {
+  return await crypto.subtle.verify(
+    {
+      name: "ECDSA",
+      hash: { name: "SHA-512" },
+    },
+    public,
+    signature,
+    data
+  );
 }
 /**
  * Generates ECDSA keys using the specified named curve.
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to the generated ECDSA keys.
  */
-async function generateECDSAKeys() {
+async function generateECDSAKeypair() {
   const ecdsaKeys = await crypto.subtle.generateKey(
     {
       name: "ECDSA",

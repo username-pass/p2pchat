@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Test File</title>
+    <script src="messagebuilder.js"></script>
+    <script src="mainpeer.js"></script>
+    <script src="other.js"></script>
+    <script src="encryption.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+
+<body>
+    <script>
+        let mainpeer;
+
+        (async () => {
+            // Peer A
+            const keys = await generateECDSAKeypair();
+            const pubHex = arrayBufferToHex(await exportKeys(true, keys.publicKey));
+            const privHex = arrayBufferToHex(await exportKeys(false, keys.privateKey));
+            mainpeer = new Mainpeer(pubHex, privHex);
+            mainpeer.init();
+            await mainpeer.waitForInit();
+            const main = true;
+            if (main) {
+                console.log(pubHex);
+                await mainpeer.connect(prompt("Enter peer id"));
+            }
+
+
+        })();
+
+
+
+
+    </script>
+</body>
+
+</html>
