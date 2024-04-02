@@ -36,6 +36,9 @@ class Otherpeer {
             });
         }
     }
+    async verify(message, signature) {
+        
+    }
 
     /**
      * Establishes a connection with another peer and sends a connect message.
