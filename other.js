@@ -37,7 +37,15 @@ class Otherpeer {
         }
     }
     async verify(message, signature) {
-        
+          return await crypto.subtle.verify(
+                {
+                  name: "ECDSA",
+                  hash: { name: "SHA-512" },
+                },
+                this.publicKey,
+                hexToArrayBuffer(signature),
+                 new TextEncoder().encode(message)
+              );
     }
 
     /**
